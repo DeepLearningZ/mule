@@ -6,7 +6,11 @@
  */
 package org.mule.module.cxf.transport;
 
+<<<<<<< HEAD
 import static org.mule.module.cxf.support.CxfUtils.clearClientContextIfNeeded;
+=======
+import static java.util.regex.Pattern.compile;
+>>>>>>> c580ccb76f... problem
 import static org.apache.cxf.message.Message.DECOUPLED_CHANNEL_MESSAGE;
 import org.mule.DefaultMuleEvent;
 import org.mule.DefaultMuleMessage;
@@ -45,6 +49,8 @@ import java.net.MalformedURLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.xml.ws.BindingProvider;
 import javax.xml.ws.Holder;
@@ -74,6 +80,8 @@ public class MuleUniversalConduit extends AbstractConduit
 {
 
     private static final Logger LOGGER = LogUtils.getL7dLogger(MuleUniversalConduit.class);
+
+    private static Pattern CHARSET_PATTERN = compile("charset=([^\"]*)");
 
     private EndpointInfo endpoint;
 
@@ -313,15 +321,17 @@ public class MuleUniversalConduit extends AbstractConduit
             if (is != null)
             {
                 Message inMessage = new MessageImpl();
-
-                String encoding = result.getEncoding();
-                inMessage.put(Message.ENCODING, encoding);
-
+                
                 String contentType = result.getInboundProperty(HttpConstants.HEADER_CONTENT_TYPE, "text/xml");
-                if (encoding != null && contentType.indexOf("charset") < 0)
+
+                String encoding = resolveEncoding(result, contentType);
+
+                if (encoding != null)
                 {
-                    contentType += "; charset=" + result.getEncoding();
+                    contentType += "; charset=" + encoding;
                 }
+
+                inMessage.put(Message.ENCODING, encoding);
                 inMessage.put(Message.CONTENT_TYPE, contentType);
                 inMessage.setContent(InputStream.class, is);
                 inMessage.setExchange(m.getExchange());
@@ -333,6 +343,21 @@ public class MuleUniversalConduit extends AbstractConduit
 
         // No body in the response, mark the exchange as finished.
         m.getExchange().put(ClientImpl.FINISHED, Boolean.TRUE);
+    }
+
+    private String resolveEncoding(MuleMessage result, String contentType)
+    {
+        String encoding;
+        Matcher matcher = CHARSET_PATTERN.matcher(contentType);
+        if (matcher.find() && matcher.groupCount() > 0)
+        {
+            encoding = matcher.group(1);
+        }
+        else
+        {
+            encoding = result.getEncoding();
+        }
+        return encoding;
     }
 
     protected InputStream getResponseBody(Message m, MuleMessage result) throws TransformerException, IOException
