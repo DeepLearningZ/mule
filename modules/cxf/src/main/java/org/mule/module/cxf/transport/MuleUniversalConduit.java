@@ -6,12 +6,40 @@
  */
 package org.mule.module.cxf.transport;
 
-<<<<<<< HEAD
-import static org.mule.module.cxf.support.CxfUtils.clearClientContextIfNeeded;
-=======
-import static java.util.regex.Pattern.compile;
->>>>>>> c580ccb76f... problem
+
 import static org.apache.cxf.message.Message.DECOUPLED_CHANNEL_MESSAGE;
+import static org.mule.module.cxf.support.CxfUtils.clearClientContextIfNeeded;
+import static org.mule.module.cxf.support.CxfUtils.resolveEncoding;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PushbackInputStream;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.Logger;
+
+import javax.xml.ws.BindingProvider;
+import javax.xml.ws.Holder;
+
+import org.apache.cxf.common.logging.LogUtils;
+import org.apache.cxf.endpoint.ClientImpl;
+import org.apache.cxf.interceptor.Fault;
+import org.apache.cxf.message.Exchange;
+import org.apache.cxf.message.ExchangeImpl;
+import org.apache.cxf.message.Message;
+import org.apache.cxf.message.MessageImpl;
+import org.apache.cxf.phase.AbstractPhaseInterceptor;
+import org.apache.cxf.phase.Phase;
+import org.apache.cxf.service.model.EndpointInfo;
+import org.apache.cxf.transport.AbstractConduit;
+import org.apache.cxf.transport.MessageObserver;
+import org.apache.cxf.ws.addressing.AttributedURIType;
+import org.apache.cxf.ws.addressing.EndpointReferenceType;
+import org.apache.cxf.wsdl.EndpointReferenceUtils;
 import org.mule.DefaultMuleEvent;
 import org.mule.DefaultMuleMessage;
 import org.mule.NonBlockingVoidMuleEvent;
@@ -39,38 +67,6 @@ import org.mule.transport.NullPayload;
 import org.mule.transport.http.HttpConnector;
 import org.mule.transport.http.HttpConstants;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.PushbackInputStream;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.xml.ws.BindingProvider;
-import javax.xml.ws.Holder;
-
-import org.apache.cxf.common.logging.LogUtils;
-import org.apache.cxf.endpoint.ClientImpl;
-import org.apache.cxf.interceptor.Fault;
-import org.apache.cxf.message.Exchange;
-import org.apache.cxf.message.ExchangeImpl;
-import org.apache.cxf.message.Message;
-import org.apache.cxf.message.MessageImpl;
-import org.apache.cxf.phase.AbstractPhaseInterceptor;
-import org.apache.cxf.phase.Phase;
-import org.apache.cxf.service.model.EndpointInfo;
-import org.apache.cxf.transport.AbstractConduit;
-import org.apache.cxf.transport.MessageObserver;
-import org.apache.cxf.ws.addressing.AttributedURIType;
-import org.apache.cxf.ws.addressing.EndpointReferenceType;
-import org.apache.cxf.wsdl.EndpointReferenceUtils;
-
 /**
  * A Conduit is primarily responsible for sending messages from CXF to somewhere
  * else. This conduit takes messages which are being written and sends them to the
@@ -80,8 +76,6 @@ public class MuleUniversalConduit extends AbstractConduit
 {
 
     private static final Logger LOGGER = LogUtils.getL7dLogger(MuleUniversalConduit.class);
-
-    private static Pattern CHARSET_PATTERN = compile("charset=([^\"]*)");
 
     private EndpointInfo endpoint;
 
@@ -343,21 +337,6 @@ public class MuleUniversalConduit extends AbstractConduit
 
         // No body in the response, mark the exchange as finished.
         m.getExchange().put(ClientImpl.FINISHED, Boolean.TRUE);
-    }
-
-    private String resolveEncoding(MuleMessage result, String contentType)
-    {
-        String encoding;
-        Matcher matcher = CHARSET_PATTERN.matcher(contentType);
-        if (matcher.find() && matcher.groupCount() > 0)
-        {
-            encoding = matcher.group(1);
-        }
-        else
-        {
-            encoding = result.getEncoding();
-        }
-        return encoding;
     }
 
     protected InputStream getResponseBody(Message m, MuleMessage result) throws TransformerException, IOException
